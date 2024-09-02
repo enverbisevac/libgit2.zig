@@ -20,8 +20,12 @@ pub fn build(b: *std.Build) !void {
             .GIT_THREADS = 1,
 
             // @Todo: add per target conditionals for these
-            .GIT_USE_NSEC = 1,
-            .GIT_USE_STAT_MTIM = 1,
+            // if (target.result.os.tag == .linux) {
+            //     .GIT_USE_NSEC = 1,
+            //     .GIT_USE_STAT_MTIM = 1,
+            // } else {
+            .GIT_USE_NSEC = 0,
+            .GIT_USE_STAT_MTIM = 0,
             .GIT_RAND_GETENTROPY = 1,
             .GIT_RAND_GETLOADAVG = 1,
         },
@@ -31,7 +35,7 @@ pub fn build(b: *std.Build) !void {
         // @Todo: for some reason on linux, trying to use c90 as specified in the cmake
         // files causes compile errors relating to pthreads. Using gnu90 or the
         // default compiles, so I guess this is fine?
-        // "-std=c90",
+        "-std=c90",
         "-DHAVE_CONFIG_H",
         if (target.result.os.tag != .windows)
             "-DGIT_DEFAULT_CERT_LOCATION=\"/etc/ssl/certs/\""
@@ -203,8 +207,9 @@ pub fn build(b: *std.Build) !void {
                 .NO_RECURSE = 1,
                 .PCRE_POSIX_MALLOC_THRESHOLD = 10,
                 .BSR_ANYCRLF = 0,
-                // "-DMAX_NAME_SIZE=32",
-                // "-DMAX_NAME_COUNT=10000",
+                .DMAX_NAME_SIZE = 32,
+                .DMAX_NAME_COUNT = 10000,
+                .PCREGREP_BUFSIZE = 100000,
             },
         ));
         pcre.addIncludePath(libgit_src.path("deps/pcre"));
@@ -224,29 +229,37 @@ pub fn build(b: *std.Build) !void {
     }
     {
         // @Todo: support using system zlib?
-        const zlib = b.addStaticLibrary(.{
-            .name = "z",
+        // const zlib = b.addStaticLibrary(.{
+        //     .name = "z",
+        //     .target = target,
+        //     .optimize = optimize,
+        //     .link_libc = true,
+        // });
+        // zlib.addIncludePath(libgit_src.path("deps/zlib"));
+        // zlib.addCSourceFiles(.{
+        //     .root = libgit_root,
+        //     .files = &zlib_sources,
+        //     .flags = &.{
+        //         "-std=c89",
+        //         "-Wno-implicit-fallthrough",
+        //         "-DNO_VIZ",
+        //         "-DSTDC",
+        //         "-DNO_GZIP",
+        //         "-DHAVE_SYS_TYPES_H",
+        //         "-DHAVE_STDINT_H",
+        //         "-DHAVE_STDDEF_H",
+        //         "-DZ_HAVE_UNISTD_H",
+        //     },
+        // });
+
+        // lib.addIncludePath(libgit_src.path("deps/zlib"));
+
+        const zlib_dep = b.dependency("zlib", .{
             .target = target,
             .optimize = optimize,
-            .link_libc = true,
-        });
-        zlib.addIncludePath(libgit_src.path("deps/zlib"));
-        zlib.addCSourceFiles(.{
-            .root = libgit_root,
-            .files = &zlib_sources,
-            .flags = &.{
-                "-Wno-implicit-fallthrough",
-                "-DNO_VIZ",
-                "-DSTDC",
-                "-DNO_GZIP",
-                "-DHAVE_SYS_TYPES_H",
-                "-DHAVE_STDINT_H",
-                "-DHAVE_STDDEF_H",
-            },
         });
 
-        lib.addIncludePath(libgit_src.path("deps/zlib"));
-        lib.linkLibrary(zlib);
+        lib.linkLibrary(zlib_dep.artifact("z"));
     }
     // xdiff
     {
@@ -309,7 +322,7 @@ pub fn build(b: *std.Build) !void {
             .root = libgit_root,
             .files = &cli_sources,
             // @Todo: see above
-            // .flags = &.{"-std=c90"},
+            .flags = &.{"-std=c89"},
         });
 
         // independant install step so you can easily access the binary
